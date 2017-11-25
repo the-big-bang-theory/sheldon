@@ -1,5 +1,7 @@
 package garden.bots;
 
+import io.vertx.circuitbreaker.CircuitBreaker;
+import io.vertx.circuitbreaker.CircuitBreakerOptions;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -34,39 +36,76 @@ public class Sheldon extends AbstractVerticle {
       .put("description", "Hello 🌍 I'm Sheldon")
     );
     
+    /* === Define a circuit breaker === */
+    /* 🚦 */
+    CircuitBreaker knock = CircuitBreaker.create("knock", vertx,
+      new CircuitBreakerOptions()
+        .setMaxFailures(3) // number of failure before opening the circuit
+        .setTimeout(2000)  // consider a failure if the operation does not succeed in time
+        //.setFallbackOnFailure(true) // do we call the fallback on failure
+        .setResetTimeout(10000) // time spent in open state before attempting to re-try
+    );
+    /* 🚦 */
+    
+    
+    
     /* Define routes */
     Router router = Router.router(vertx);
     
     router.route().handler(BodyHandler.create());
     
     router.get("/go").handler(context -> {
+  
       // knock knock knock Penny
-      discovery.getRecord(rec -> rec.getName().equals("penny"), asyncRecord -> {
-        if(asyncRecord.succeeded()) {
-  
-          ServiceReference reference = discovery.getReference(asyncRecord.result());
-          WebClient pennyClient = reference.getAs(WebClient.class);
-  
-          pennyClient.get(asyncRecord.result().getLocation().getString("endpoint")).send(asyncGetResult -> {
-            //TODO: manage errors
-            String pennysResponse = asyncGetResult.result().bodyAsJsonObject().encodePrettily();
+      knock.execute((Future<Object> future) -> {
+        /* === knock ✊ === */
+        
+        // search and create webclient
+        discovery.getRecord(rec -> rec.getName().equals("penny"), asyncRecord -> {
+          if(asyncRecord.succeeded()) {
             
-            context.response()
-              .putHeader("content-type", "application/json;charset=UTF-8")
-              .end(pennysResponse);
-          });
-          
-          
-        } else {
-          System.out.println("😡 Unable to get a WebClient for the service: " + asyncRecord.cause().getMessage());
-          System.out.println("😡, Houston, we have a problem with this raider");
+            Optional<Record> optionalRecord = Optional.ofNullable(asyncRecord.result());
+            
+            if (optionalRecord.isPresent()) {
+              ServiceReference reference = discovery.getReference(asyncRecord.result());
+              WebClient pennyClient = reference.getAs(WebClient.class);
+              // call the client
+              pennyClient.get(asyncRecord.result().getLocation().getString("endpoint")).send(asyncGetResult -> {
+                if(asyncGetResult.succeeded()) {
+                  String pennysResponse = asyncGetResult.result().bodyAsJsonObject().encodePrettily();
+                  future.complete(pennysResponse);
+                } else {
+                  future.fail(asyncGetResult.cause().getMessage());
+                }
+              });
+            } else {
+              future.fail("There is no record for Penny");
+            }
+            
+      
+          } else {
+
+            future.fail("There is no record for Penny");
+          }
+    
+        });
+        
+        
+      }).setHandler(ar -> {
+  
+        if(ar.succeeded()) {
+    
           context.response()
             .putHeader("content-type", "application/json;charset=UTF-8")
-            .end(new JsonObject().put("error", "ouch").encodePrettily());
+            .end(ar.result().toString());
+    
+        } else {
+          context.response()
+            .putHeader("content-type", "application/json;charset=UTF-8")
+            .end(new JsonObject().put("error", ar.cause().getMessage()).encodePrettily());
         }
         
       });
-      
       
     });
     
