@@ -40,10 +40,9 @@ public class Sheldon extends AbstractVerticle {
     /* 🚦 */
     CircuitBreaker knock = CircuitBreaker.create("knock", vertx,
       new CircuitBreakerOptions()
-        .setMaxFailures(3) // number of failure before opening the circuit
+        .setMaxRetries(3)
         .setTimeout(2000)  // consider a failure if the operation does not succeed in time
-        //.setFallbackOnFailure(true) // do we call the fallback on failure
-        .setResetTimeout(10000) // time spent in open state before attempting to re-try
+        .setFallbackOnFailure(true) // do we call the fallback on failure
     );
     /* 🚦 */
     
@@ -59,6 +58,8 @@ public class Sheldon extends AbstractVerticle {
       // knock knock knock Penny
       knock.execute((Future<Object> future) -> {
         /* === knock ✊ === */
+        
+        System.out.println("knock ✊");
         
         // search and create webclient
         discovery.getRecord(rec -> rec.getName().equals("penny"), asyncRecord -> {
