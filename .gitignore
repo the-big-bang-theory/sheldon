@@ -1,0 +1,6 @@
+.idea
+target
+.iml
+dump.rdb
+.DS_Store
+#find . -name '.DS_Store' -type f -delete
