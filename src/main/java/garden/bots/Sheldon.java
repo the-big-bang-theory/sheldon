@@ -6,6 +6,7 @@ import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.servicediscovery.rest.ServiceDiscoveryRestEndpoint;
 import io.vertx.servicediscovery.types.HttpEndpoint;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServer;
@@ -109,6 +110,9 @@ public class Sheldon extends AbstractVerticle {
       });
       
     });
+  
+    // 👋 use me with other microservices
+    ServiceDiscoveryRestEndpoint.create(router, discovery);
     
     
     /* serve static assets, see /resources/webroot directory */
